@@ -1,0 +1,15 @@
+.DS_store
+.env
+node_modules
+dist
+coverage
+.vscode
+.idea
+*.log
+*.swp
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+*.db
+.venv
