@@ -4,7 +4,7 @@ import os
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, confusion_matrix
 from datasets import load_dataset
 
-MODEL_DIR = "new_models"
+MODEL_DIR = "models"
 
 print("🛡️ Booting Aegis Evaluation Suite...\n")
 
