@@ -32,34 +32,28 @@ class SecureScanner:
         self.feature_names = np.array(self.vectorizer.get_feature_names_out())
         self.coefficients = self.classifier.coef_[0]
 
-    def scan(self, text: str):
+    def scan(self, text: str, threshold: float = 0.30):
         text_lower = text.lower()
         
-        # --- LAYER 1: SIGNATURE CHECK (Hard Filter) ---
-        # Instantly blocks known high-risk attacks
+        # --- LAYER 1: SIGNATURE CHECK ---
         known_signatures = ["do anything now", "dan", "jailbreak", "dev mode", "chaosgpt"]
         for sig in known_signatures:
             if sig in text_lower:
                 return False, 1.0, [sig, "signature_match"]
 
-        # --- LAYER 2: ML MODEL (Soft Filter) ---
-        # 1. Transform text
+        # --- LAYER 2: ML MODEL ---
         vector = self.vectorizer.transform([text])
-        
-        # 2. Get Risk Score
         risk_score = self.classifier.predict_proba(vector)[0][1]
         
-        # 3. Decision (Using the 0.30 threshold from our 87% recall test)
-        is_safe = risk_score < 0.30
+        # 3. Decision (NOW DYNAMIC!)
+        is_safe = risk_score < threshold
         
-        # 4. Explainability: Find the specific "Trigger Words"
         triggers = []
         if not is_safe:
             nonzero_indices = vector.nonzero()[1]
             if len(nonzero_indices) > 0:
                 word_scores = [(self.feature_names[i], self.coefficients[i]) for i in nonzero_indices]
                 word_scores.sort(key=lambda x: x[1], reverse=True)
-                # Keep top 3 dangerous words found in this prompt (ignore negative safe weights)
                 triggers = [word for word, score in word_scores[:3] if score > 0]
 
         return is_safe, float(risk_score), triggers
