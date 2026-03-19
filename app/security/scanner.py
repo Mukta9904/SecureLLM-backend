@@ -14,7 +14,7 @@ class SecureScanner:
         app_dir = os.path.dirname(security_dir)
         base_dir = os.path.dirname(app_dir) 
         
-        model_dir = os.path.join(base_dir, "models")
+        model_dir = os.path.join(base_dir, "new_models")
         
         # --- 2. LOAD MODELS WITH ERROR HANDLING ---
         try:
