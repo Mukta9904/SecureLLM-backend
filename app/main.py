@@ -137,22 +137,32 @@ async def chat_endpoint(request: ChatRequest):
 # ⚠️ FIXED HIERARCHY: Static Route placed BEFORE the Dynamic Route! 
 @app.get("/chat/sessions")
 async def list_all_sessions():
-    """Returns a list of all chat sessions for the sidebar."""
-    cursor = sessions_collection.find({}, {"session_id": 1, "messages": {"$slice": 1}}).sort("_id", -1).limit(20)
-    sessions = await cursor.to_list(length=20)
-    
-    result = []
-    for s in sessions:
-        title = "Empty Chat"
-        if "messages" in s and len(s["messages"]) > 0:
-            title = s["messages"][0].get("content", "New Chat")[:30] + "..."
-            
-        result.append({
-            "session_id": s.get("session_id"),
-            "title": title
-        })
+    """Returns a list of all chat sessions for the sidebar (Hyper-Safe Version)."""
+    try:
+        # Fetch the most recent 20 sessions without risky $slice operators
+        cursor = sessions_collection.find({}, {"session_id": 1, "messages": 1}).sort("_id", -1).limit(20)
+        sessions = await cursor.to_list(length=20)
         
-    return {"sessions": result}
+        result = []
+        for s in sessions:
+            title = "Empty Chat"
+            # Safely check if messages exist and is actually a list
+            if "messages" in s and isinstance(s["messages"], list) and len(s["messages"]) > 0:
+                title = str(s["messages"][0].get("content", "New Chat"))[:30] + "..."
+                
+            # Only append valid sessions
+            if s.get("session_id"):
+                result.append({
+                    "session_id": s.get("session_id"),
+                    "title": title
+                })
+                
+        return {"sessions": result}
+    
+    except Exception as e:
+        print(f"❌ DATABASE ERROR in list_all_sessions: {e}")
+        # Return an empty list so the frontend doesn't crash!
+        return {"sessions": []}
 
 @app.get("/chat/sessions/{session_id}")
 async def get_session_history(session_id: str):
