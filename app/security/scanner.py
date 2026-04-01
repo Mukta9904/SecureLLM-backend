@@ -4,6 +4,7 @@ import time
 import requests
 import numpy as np
 from dotenv import load_dotenv
+from gradio_client import Client
 
 # 1. Force python to find the exact path to the .env file locally
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -11,17 +12,10 @@ root_dir = os.path.dirname(os.path.dirname(current_dir))
 env_path = os.path.join(root_dir, '.env')
 load_dotenv(dotenv_path=env_path)
 
-# 2. Grab the URL from the system. 
-COLAB_API_URL = os.getenv("COLAB_API_URL")
-
 # 3. IF it is still None (because we forgot to set it), force a safe default so it doesn't crash!
-if not COLAB_API_URL:
-    COLAB_API_URL = "http://localhost:8000/scan_layer2"
-
 class SecureScanner:
     def __init__(self):
         print("🛡️ Booting Aegis Secure Scanner (Microservice Mode)...")
-        print(f"🔗 Layer 2 Endpoint set to: {COLAB_API_URL}")
         self.vectorizer = None
         self.classifier = None
         
@@ -55,7 +49,7 @@ class SecureScanner:
             return False
 
         if folder_name == "cascade":
-            print("✅ Cascade Mode active. Layer 2 requests will be routed to Colab GPU.")
+            print("✅ Cascade Mode active. Layer 2 requests will be routed to Hugging Face.")
             
         return True
 
@@ -85,24 +79,29 @@ class SecureScanner:
             word_scores.sort(key=lambda x: x[1], reverse=True)
             triggers = [word for word, score in word_scores[:3] if score > 0.0]
 
-        # --- CASCADE ROUTING (CALLING COLAB) ---
+        # --- CASCADE ROUTING (CALLING HUGGING FACE DL LAYER) ---
         if self.active_folder == "cascade":
             if 0.15 <= risk_score <= 0.85:
-                # 🚀 The text is in the grey area. Send to Colab GPU!
+                print(f"🟡 Grey Area Score ({risk_score:.2f}). Routing to Layer 2 DL...")
+                
                 try:
-                    response = requests.post(COLAB_API_URL, json={"text": text}, timeout=3.0)
-                    response.raise_for_status()
-                    dl_data = response.json()
+                    # Connect to your free Space
+                    dl_client = Client("Mukta9904/aegis-dl-api")
                     
-                    is_safe = dl_data["is_safe"]
-                    dl_risk_score = dl_data["risk_score"]
+                    # Call the exact API endpoint that worked in your test
+                    dl_risk_score = dl_client.predict(
+                        text=text,
+                        api_name="/analyze_prompt"
+                    )
+                    
+                    is_safe = dl_risk_score < 0.50
                     latency = round((time.perf_counter() - start_time) * 1000, 2)
                     
-                    return is_safe, dl_risk_score, [], "Layer 2 (Colab DistilBERT)", latency
+                    return is_safe, dl_risk_score, [], "Layer 2 (HuggingFace Spaces DL)", latency
                     
                 except Exception as e:
-                    print(f"⚠️ Colab API Failed/Timeout: {e}. Falling back to Layer 1!")
-                    # If Colab is asleep or dead, gracefully fall back to Layer 1 decision
+                    print(f"⚠️ Layer 2 API Failed: {e}. Falling back to Layer 1!")
+                    # Graceful fallback if Hugging Face is down
                     is_safe = risk_score < 0.50
                     latency = round((time.perf_counter() - start_time) * 1000, 2)
                     return is_safe, risk_score, triggers, "Layer 1 (Fallback Mode)", latency
