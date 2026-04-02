@@ -88,20 +88,24 @@ class SecureScanner:
                     # Connect to your free Space
                     dl_client = Client("Mukta9904/aegis-dl-api")
                     
-                    # Call the exact API endpoint that worked in your test
-                    dl_risk_score = dl_client.predict(
+                    # The API returns the tuple: (score, triggers_dict)
+                    dl_risk_score, dl_triggers = dl_client.predict(
                         text=text,
                         api_name="/analyze_prompt"
                     )
                     
+                    # --- THE FIX IS HERE ---
+                    # Instead of formatting it with weights, just grab the raw words
+                    # This makes it identical to the ML Layer's output!
+                    extracted_triggers = list(dl_triggers.keys())
+                    
                     is_safe = dl_risk_score < 0.50
                     latency = round((time.perf_counter() - start_time) * 1000, 2)
                     
-                    return is_safe, dl_risk_score, [], "Layer 2 (HuggingFace Spaces DL)", latency
+                    return is_safe, dl_risk_score, extracted_triggers, "Layer 2 (LP + SHAP)", latency
                     
                 except Exception as e:
                     print(f"⚠️ Layer 2 API Failed: {e}. Falling back to Layer 1!")
-                    # Graceful fallback if Hugging Face is down
                     is_safe = risk_score < 0.50
                     latency = round((time.perf_counter() - start_time) * 1000, 2)
                     return is_safe, risk_score, triggers, "Layer 1 (Fallback Mode)", latency
